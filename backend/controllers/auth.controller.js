@@ -49,29 +49,33 @@ export const login = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     const select = db.prepare(
       `
-        SELECT id, username, profile_pic FROM users
+        SELECT id, username, profile_pic, password_hash FROM users
         WHERE username = ?;
         `
     );
-    const user = select.run(username);
+    const user = select.get(username);
     if (!user) {
       return res
         .status(400)
         .json({ success: false, message: "User not found" });
     }
 
-    if (result.password_hash != hashedPassword) {
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+
+    if (!validPassword) {
       return res
         .status(403)
         .json({ success: false, message: "Wrong password" });
     }
 
-    //! not sure if i need to turn user into an object first
-    const { accessToken, refreshToken } = generateTokens(user);
+    const userForToken = {
+      id: user.id,
+      username: user.username,
+    };
+
+    const { accessToken, refreshToken } = generateTokens(userForToken);
 
     //todo need to create a refresh token table
     //todo store the refresh token into the new table
@@ -88,9 +92,12 @@ export const login = async (req, res) => {
       success: true,
       message: "Login successful",
       accessToken,
-      data: user,
+      data: {
+        id: user.id,
+        username: user.username,
+        profile_pic: user.profile_pic,
+      },
     });
-
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Server error" });
