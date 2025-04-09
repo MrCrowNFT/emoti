@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
+import db from "./db/db";
 
 dotenv.config();
 
@@ -15,6 +16,6 @@ const io = new Server(server, {
 
 app.use(cors());
 server.listen(PORT, () => {
-  //todo add db connection here i think
+  console.log("Database connected");
   console.log(`Server running on port ${PORT}`);
 });
