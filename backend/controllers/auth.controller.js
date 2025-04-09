@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import db from "../db/db";
+import { generateTokens } from "../helpers/auth.helper";
 
-//todo maybe add email to db
 export const signup = async (req, res) => {
   try {
     const { username, profile_pic, password } = req.body;
@@ -40,7 +40,61 @@ export const signup = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-  } catch (error) {}
+    const { username, password } = req.body;
+
+    if (!username?.trim() || !password?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing username or password",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const select = db.prepare(
+      `
+        SELECT id, username, profile_pic FROM users
+        WHERE username = ?;
+        `
+    );
+    const user = select.run(username);
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+    }
+
+    if (result.password_hash != hashedPassword) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Wrong password" });
+    }
+
+    //! not sure if i need to turn user into an object first
+    const { accessToken, refreshToken } = generateTokens(user);
+
+    //todo need to create a refresh token table
+    //todo store the refresh token into the new table
+    //todo error handle if failed to store the refresh token
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000, //30 days
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      accessToken,
+      data: user,
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
 };
 
 export const refreshAccessToken = async (req, res) => {
