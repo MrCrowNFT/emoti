@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import db from "../db/db";
-import { generateTokens } from "../helpers/auth.helper";
+import { generateAccessToken, generateTokens } from "../helpers/auth.helper";
+import jwt from "jsonwebtoken";
 
 export const signup = async (req, res) => {
   try {
@@ -83,7 +84,7 @@ export const login = async (req, res) => {
     `);
 
     const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30d
-    
+
     const refreshTokenInsert = insert.run(
       user.id,
       refreshToken,
@@ -121,10 +122,110 @@ export const login = async (req, res) => {
 
 export const refreshAccessToken = async (req, res) => {
   try {
-  } catch (error) {}
+    console.log("------ REFRESH TOKEN PROCESS STARTED ------");
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+      console.error(error);
+      return res
+        .status(400)
+        .json({ success: false, message: "Refresh token is required" });
+    }
+    //find the refresh token on db
+    const select = db.prepare(`
+      Select * FROM refresh_tokens
+      WHERE token = ?
+      `);
+    const storedToken = select.get(refreshToken);
+    if (!storedToken) {
+      console.error(error);
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid refresh token" });
+    }
+    const currentTime = new Date();
+    if (storedToken.expires_at < currentTime) {
+      const deleteToken = db.prepare(`
+        DELETE FROM refresh_tokens
+        WHERE token = ?
+      `);
+
+      await deleteToken.run(refreshToken);
+      return res
+        .status(401)
+        .json({ success: false, message: "Refresh token expired" });
+    }
+    console.log("Verifying JWT token signature...");
+    let decoded;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+      console.log("JWT verification successful.");
+    } catch (error) {
+      const deleteToken = db.prepare(`
+        DELETE FROM refresh_tokens
+        WHERE token = ?
+      `);
+      await deleteToken.run(refreshToken);
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid refresh token" });
+    }
+
+    const find = db.prepare(
+      `
+        SELECT * FROM users
+        WHERE id = ?;
+        `
+    );
+    const user = find.get(decoded.id);
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+    }
+    const accessToken = generateAccessToken(user);
+    console.log("------ REFRESH TOKEN PROCESS COMPLETED SUCCESSFULLY ------");
+    return res.status(200).json({
+      success: true,
+      message: "Refresh successful",
+      accessToken,
+    });
+  } catch (error) {
+    console.error("------ REFRESH TOKEN PROCESS FAILED ------");
+    console.error(error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
 };
 
 export const logout = async (req, res) => {
   try {
-  } catch (error) {}
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+      console.error(error);
+      return res
+        .status(400)
+        .json({ success: false, message: "Refresh token is required" });
+    }
+    const del = db.prepare(`
+      DELETE FROM refresh_tokens
+      WHERE token = ?
+    `);
+    const deletedToken = await del.run(refreshToken);
+    if (!deletedToken) {
+      console.error(error);
+      return res.status(400).json({
+        success: false,
+        message: "Refresh token could not be deleted",
+      });
+    }
+    // Clear the cookie
+    res.clearCookie("refreshToken");
+
+    return res.status(200).json({
+      success: true,
+      message: "Logout successful",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
 };

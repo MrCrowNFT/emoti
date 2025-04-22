@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { ACCESS_TOKEN_EXPIRY, REFRESH_TOKEN_EXPIRY } from "../config/constants";
 
 /**
  * Validates that all required environment variables exist
