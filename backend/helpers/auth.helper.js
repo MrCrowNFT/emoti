@@ -1,8 +1,5 @@
 import jwt from "jsonwebtoken";
 
-// Constants for token expiration -> subject to change
-const ACCESS_TOKEN_EXPIRY = "5m";
-
 /**
  * Validates that all required environment variables exist
  * @param {string[]} requiredVars - Array of required environment variable names
@@ -50,21 +47,11 @@ export const generateRefreshToken = (user) => {
   if (!user || !user.id || !user.username) {
     throw new Error("Invalid user object provided");
   }
-  const refreshToken = jwt.sign(
+  return jwt.sign(
     { id: user.id, username: user.username },
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: REFRESH_TOKEN_EXPIRY }
   );
-
-  const insert = db.prepare(`
-    INSERT INTO refresh_tokens (user_id, token, expires_at)
-    VALUES (?, ?, ?)
-  `);
-
-  const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30d
-  insert.run(user.id, refreshToken, expiryDate.toISOString());
-
-  return refreshToken;
 };
 
 /**

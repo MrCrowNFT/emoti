@@ -77,8 +77,24 @@ export const login = async (req, res) => {
 
     const { accessToken, refreshToken } = generateTokens(userForToken);
 
-    //todo store the refresh token into the new table
-    //todo error handle if failed to store the refresh token
+    const insert = db.prepare(`
+      INSERT INTO refresh_tokens (user_id, token, expires_at)
+      VALUES (?, ?, ?)
+    `);
+
+    const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30d
+    
+    const refreshTokenInsert = insert.run(
+      user.id,
+      refreshToken,
+      expiryDate.toISOString()
+    );
+    if (!refreshTokenInsert) {
+      console.error(error);
+      return res
+        .status(500)
+        .json({ success: false, message: "Database error" });
+    }
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
