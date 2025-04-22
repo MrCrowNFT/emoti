@@ -77,7 +77,6 @@ export const login = async (req, res) => {
 
     const { accessToken, refreshToken } = generateTokens(userForToken);
 
-    //todo need to create a refresh token table
     //todo store the refresh token into the new table
     //todo error handle if failed to store the refresh token
 
