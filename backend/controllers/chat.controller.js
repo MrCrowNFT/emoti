@@ -69,4 +69,25 @@ export const createChat = async (user1Id, user2Id) => {
   }
 };
 
-//
+//Get chat messages
+export const getChatMessages = async (chatId, limit = 50, offset = 0) => {
+  try {
+    const messages = db
+      .prepare(
+        `
+        SELECT m.*, u.username as sender_name
+        FROM messages m
+        JOIN users u ON m.sender_id = u.id
+        WHERE m.chat_id = ?
+        ORDER BY m.created_at DESC
+        LIMIT ? OFFSET ?
+      `
+      )
+      .all(chatId, limit, offset);
+
+    return messages;
+  } catch (error) {
+    console.error("Error getting chat messages:", error);
+    throw error;
+  }
+};
