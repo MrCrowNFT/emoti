@@ -29,6 +29,23 @@ export const saveMessage = async ({ chatId, senderId, content }) => {
 };
 
 //get messages in chat
+export const getChat = async (user1Id, user1Id) => {
+  try {
+    const chat = db
+      .prepare(
+        `
+            SELECT * FROM chats
+            WHERE (user1_id = ? AND user2_id =?) OR (user1_id = ? AND user2_id = ?)
+            `
+      )
+      .get(user1Id, user2Id, user2Id, user1Id);
+
+    return chat;
+  } catch (error) {
+    console.error("Error getting chat:", error);
+    throw error;
+  }
+};
 
 //create new chat between two users
 export const createChat = async (user1Id, user2Id) => {
